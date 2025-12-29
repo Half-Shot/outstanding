@@ -6,6 +6,7 @@
     "@types/node": "^25.0.3"
   },
   "bin": "lib/index.mts",
+  "license": "MIT",
   "scripts": {
     "start": "node lib/index.mts"
   },
