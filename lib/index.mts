@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { graphql } from "@octokit/graphql";
 import {
   getInitialInfo,
@@ -32,21 +30,23 @@ function formatState(state: string) {
 const OneDay = 24 * 60 * 60 * 1000;
 
 function formatCreatedAt(createdAt: Date) {
-    const daysOutstanding = Math.ceil((Date.now() - createdAt.getTime()) / OneDay);
-    if (daysOutstanding < 60) {
-        return chalk.gray(`${daysOutstanding} days`);
-    }
-    if (daysOutstanding < 365) {
-        return chalk.yellow(`${daysOutstanding} days`);
-    }
-    const years = Math.floor(daysOutstanding/365);
-    if (years > 1) {
-        return chalk.red.bold(`> ${years} years`);
-    }
-    return chalk.red.bold(`> 1 year `);
+  const daysOutstanding = Math.ceil(
+    (Date.now() - createdAt.getTime()) / OneDay,
+  );
+  if (daysOutstanding < 60) {
+    return chalk.gray(`${daysOutstanding} days`);
+  }
+  if (daysOutstanding < 365) {
+    return chalk.yellow(`${daysOutstanding} days`);
+  }
+  const years = Math.floor(daysOutstanding / 365);
+  if (years > 1) {
+    return chalk.red.bold(`> ${years} years`);
+  }
+  return chalk.red.bold(`> 1 year `);
 }
 
-async function main() {
+export async function main() {
   const githubToken = await getGitHubToken();
   const [_, __, includedOrgsStr, ignoreReposStr] = process.argv;
   if (includedOrgsStr === "--help" || includedOrgsStr === "-h") {

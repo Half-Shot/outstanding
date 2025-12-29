@@ -9,7 +9,7 @@ Requires NodeJS 24.x or newer.
 You can install this tool for easy usage (providing your shell can see your installed npm bins):
 
 ```sh
-yarn dlx https://github.com/Half-Shot/outstanding
+yarn dlx "outstanding@https://github.com/half-shot/outstanding" half-shot,matrix-org half-shot/outstanding
 ```
 
 ## Example
