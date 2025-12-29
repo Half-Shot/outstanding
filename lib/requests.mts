@@ -45,6 +45,15 @@ interface GetOutstandingPRsForOrgsResponse {
         title: string;
         url: string;
         isDraft: boolean;
+        mergeStateStatus:
+          | "DIRTY"
+          | "UNKNOWN"
+          | "BLOCKED"
+          | "BEHIND"
+          | "DRAFT"
+          | "UNSTABLE"
+          | "HAS_HOOKS"
+          | "CLEAN";
         reviews: {
           nodes: {
             state: string;
@@ -74,6 +83,15 @@ export interface PullRequest {
   createdAt: Date;
   org: string;
   state: string;
+  blockedBy:
+    | "DIRTY"
+    | "UNKNOWN"
+    | "BLOCKED"
+    | "BEHIND"
+    | "DRAFT"
+    | "UNSTABLE"
+    | "HAS_HOOKS"
+    | "CLEAN";
 }
 
 export async function* getOutstandingPRsForOrgs(
@@ -96,6 +114,7 @@ export async function* getOutstandingPRsForOrgs(
                             title,
                             url,
                             isDraft,
+                            mergeStateStatus,
                             reviews(first: 10) {
                                 nodes {
                                     state
@@ -146,6 +165,7 @@ export async function* getOutstandingPRsForOrgs(
         repository: element.repository.name,
         createdAt: new Date(element.createdAt),
         org: element.repository.owner.login,
+        blockedBy: element.mergeStateStatus,
       };
     }
     cursor = pullRequests.pageInfo.hasNextPage
