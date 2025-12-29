@@ -11,7 +11,7 @@ You can install this tool for easy usage (providing your shell can see your inst
 ```sh
 git checkout https://github.com/Half-Shot/outstanding/
 yarn
-yarn outstanding
+yarn outstanding [orgs-to-include] [repos-to-exclude]
 ```
 
 ## Example
