@@ -32,6 +32,8 @@ export async function getInitialInfo(
   };
 }
 
+type CheckSuiteConclusion = "SUCCESS" | "FAILURE" | "NEUTRAL";
+
 interface GetOutstandingPRsForOrgsResponse {
   viewer: {
     login: string;
@@ -45,6 +47,24 @@ interface GetOutstandingPRsForOrgsResponse {
         title: string;
         url: string;
         isDraft: boolean;
+        commits: {
+          nodes: [
+            {
+              checkSuites: {
+                nodes: {
+                  status:
+                    | "REQUESTED"
+                    | "QUEUED"
+                    | "IN_PROGRESS"
+                    | "COMPLETED"
+                    | "WAITING"
+                    | "PENDING";
+                  conclusion: CheckSuiteConclusion | string; // Other reasons
+                }[];
+              };
+            },
+          ];
+        };
         mergeStateStatus:
           | "DIRTY"
           | "UNKNOWN"
@@ -54,11 +74,7 @@ interface GetOutstandingPRsForOrgsResponse {
           | "UNSTABLE"
           | "HAS_HOOKS"
           | "CLEAN";
-        reviews: {
-          nodes: {
-            state: string;
-          }[];
-        };
+        reviewDecision: "APPROVED"|"COMMENTED"|"CHANGES_REQUESTED",
         assignees: {
           nodes: {
             login: string;
@@ -90,6 +106,7 @@ export interface PullRequest {
     | "BEHIND"
     | "DRAFT"
     | "UNSTABLE"
+    | "FAILING_TESTS"
     | "HAS_HOOKS"
     | "CLEAN";
 }
@@ -104,7 +121,7 @@ export async function* getOutstandingPRsForOrgs(
             query getOutstandingPRsForOrgs($cursor: String!){
                 viewer {
                     login,
-                    pullRequests(states: OPEN, first: 100, after: $cursor, orderBy: { direction: DESC, field: UPDATED_AT } ) {
+                    pullRequests(states: OPEN, first: 10, after: $cursor, orderBy: { direction: DESC, field: UPDATED_AT } ) {
                         pageInfo {
                             endCursor,
                             hasNextPage
@@ -115,11 +132,18 @@ export async function* getOutstandingPRsForOrgs(
                             url,
                             isDraft,
                             mergeStateStatus,
-                            reviews(first: 10) {
+                            commits(last: 1) {
                                 nodes {
-                                    state
+                                    commit {
+                                        checkSuites(first: 10) {
+                                            nodes {
+                                                conclusion
+                                            }
+                                        }
+                                    }
                                 }
-                            }
+                            },
+                            reviewDecision,
                             assignees(first: 10) {
                                 nodes{
                                     login,
@@ -153,19 +177,47 @@ export async function* getOutstandingPRsForOrgs(
         // Reassigned away, ignore.
         continue;
       }
+
+      const currentChecksState =
+        (element.commits.nodes[0]?.checkSuites?.nodes ?? []).reduce<CheckSuiteConclusion>(
+          (prev, curr) => {
+            if (curr.status !== "COMPLETED") {
+              return prev;
+            }
+            if (prev === "FAILURE") {
+              return "FAILURE";
+            }
+            if (
+              curr.conclusion === "SUCCESS" ||
+              curr.conclusion === "FAILURE"
+            ) {
+              return curr.conclusion;
+            }
+            return "NEUTRAL";
+          },
+          "NEUTRAL",
+        );
+
+      let blockedBy: PullRequest["blockedBy"];
+
+      if (element.isDraft) {
+        blockedBy = "DRAFT";
+      } else if (currentChecksState === "FAILURE") {
+        blockedBy = "FAILING_TESTS";
+      } else {
+        blockedBy = element.mergeStateStatus;
+      }
+
       yield {
         title: element.title,
         state: element.isDraft
           ? "DRAFT"
-          : element.reviews.nodes.reduce<string>(
-              (prev, curr) => (prev === "APPROVED" ? prev : curr.state),
-              "none",
-            ),
+          : element.reviewDecision,
         url: element.url,
         repository: element.repository.name,
         createdAt: new Date(element.createdAt),
         org: element.repository.owner.login,
-        blockedBy: element.isDraft ? "DRAFT" : element.mergeStateStatus,
+        blockedBy,
       };
     }
     cursor = pullRequests.pageInfo.hasNextPage

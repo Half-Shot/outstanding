@@ -41,12 +41,17 @@ Example:
     try {
       spinner.info("Loading initial info from GitHub");
       const initialInfo = await getInitialInfo(graphqlWithAuth);
-      spinner.info(
-        `Loading ${initialInfo.totalCount} PRs for ${initialInfo.username} (${initialInfo.name})`,
+      spinner.start(
+        `Loaded 0/${initialInfo.totalCount} PRs for ${initialInfo.username} (${initialInfo.name})`,
       );
       const sortedByRepo = new Map<string, Set<PullRequest>>();
       let skippedCount = 0;
+      let foundCount = 0;
       for await (const element of getOutstandingPRsForOrgs(graphqlWithAuth)) {
+        foundCount++;
+        spinner.start(
+            `Loaded ${foundCount}/${initialInfo.totalCount} PRs for ${initialInfo.username} (${initialInfo.name})`,
+        );
         if (includedOrgs.length && !includedOrgs.includes(element.org)) {
           skippedCount++;
           continue;
@@ -73,7 +78,7 @@ Example:
       output: process.stdout,
       input: process.stdin,
     });
-    const response = await rl.question("Run again? (Y/N)");
+    const response = (await rl.question("Run again? (Y/N)")) || "y";
     rerun = response[0].toLocaleLowerCase() === "y";
     rl.close();
   } while (rerun);

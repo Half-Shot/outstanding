@@ -12,10 +12,8 @@ function formatState(state: string) {
       return chalk.red(state);
     case "COMMENTED":
       return chalk.gray("UNREVIEWED");
-    case "none":
-      return chalk.gray("UNREVIEWED");
     default:
-      return state;
+      return chalk.gray("UNREVIEWED");
   }
 }
 
@@ -25,13 +23,14 @@ function formatBlockedBy(blockedBy: PullRequest["blockedBy"]) {
       return chalk.italic.grey("Draft");
     case "BEHIND":
     case "DIRTY":
-      return chalk.yellow("Update Req.");
+      return chalk.red("Update Req.");
     case "BLOCKED":
-      return chalk.red("Review Req / Test Fail");
+      return chalk.yellow("Review Required");
     case "CLEAN":
       return chalk.bold.green("Ready!");
     case "UNSTABLE":
-      return chalk.bold.red("Test Fail");
+    case "FAILING_TESTS":
+      return chalk.bold.redBright("Test Fail");
     default:
       return blockedBy;
   }
