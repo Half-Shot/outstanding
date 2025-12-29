@@ -165,7 +165,7 @@ export async function* getOutstandingPRsForOrgs(
         repository: element.repository.name,
         createdAt: new Date(element.createdAt),
         org: element.repository.owner.login,
-        blockedBy: element.mergeStateStatus,
+        blockedBy: element.isDraft ? "DRAFT" : element.mergeStateStatus,
       };
     }
     cursor = pullRequests.pageInfo.hasNextPage
