@@ -9,13 +9,15 @@ Requires NodeJS 24.x or newer.
 You can install this tool for easy usage (providing your shell can see your installed npm bins):
 
 ```sh
-yarn dlx "outstanding@https://github.com/half-shot/outstanding" half-shot,matrix-org half-shot/outstanding
+git checkout https://github.com/Half-Shot/outstanding/
+yarn
+yarn outstanding
 ```
 
 ## Example
 
 ```sh
-$ yarn dlx https://github.com/Half-Shot/outstanding half-shot,matrix-org half-shot/outstanding
+$ yarn outstanding half-shot,matrix-org half-shot/outstanding
 ℹ Loading initial info from GitHub
 ℹ Loading 3 PRs for Half-Shot
 ✔ Found all PRs!
