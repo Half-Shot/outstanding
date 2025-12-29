@@ -74,7 +74,7 @@ interface GetOutstandingPRsForOrgsResponse {
           | "UNSTABLE"
           | "HAS_HOOKS"
           | "CLEAN";
-        reviewDecision: "APPROVED"|"COMMENTED"|"CHANGES_REQUESTED",
+        reviewDecision: "APPROVED" | "COMMENTED" | "CHANGES_REQUESTED";
         assignees: {
           nodes: {
             login: string;
@@ -178,25 +178,20 @@ export async function* getOutstandingPRsForOrgs(
         continue;
       }
 
-      const currentChecksState =
-        (element.commits.nodes[0]?.checkSuites?.nodes ?? []).reduce<CheckSuiteConclusion>(
-          (prev, curr) => {
-            if (curr.status !== "COMPLETED") {
-              return prev;
-            }
-            if (prev === "FAILURE") {
-              return "FAILURE";
-            }
-            if (
-              curr.conclusion === "SUCCESS" ||
-              curr.conclusion === "FAILURE"
-            ) {
-              return curr.conclusion;
-            }
-            return "NEUTRAL";
-          },
-          "NEUTRAL",
-        );
+      const currentChecksState = (
+        element.commits.nodes[0]?.checkSuites?.nodes ?? []
+      ).reduce<CheckSuiteConclusion>((prev, curr) => {
+        if (curr.status !== "COMPLETED") {
+          return prev;
+        }
+        if (prev === "FAILURE") {
+          return "FAILURE";
+        }
+        if (curr.conclusion === "SUCCESS" || curr.conclusion === "FAILURE") {
+          return curr.conclusion;
+        }
+        return "NEUTRAL";
+      }, "NEUTRAL");
 
       let blockedBy: PullRequest["blockedBy"];
 
@@ -210,9 +205,7 @@ export async function* getOutstandingPRsForOrgs(
 
       yield {
         title: element.title,
-        state: element.isDraft
-          ? "DRAFT"
-          : element.reviewDecision,
+        state: element.isDraft ? "DRAFT" : element.reviewDecision,
         url: element.url,
         repository: element.repository.name,
         createdAt: new Date(element.createdAt),

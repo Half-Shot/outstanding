@@ -50,7 +50,7 @@ Example:
       for await (const element of getOutstandingPRsForOrgs(graphqlWithAuth)) {
         foundCount++;
         spinner.start(
-            `Loaded ${foundCount}/${initialInfo.totalCount} PRs for ${initialInfo.username} (${initialInfo.name})`,
+          `Loaded ${foundCount}/${initialInfo.totalCount} PRs for ${initialInfo.username} (${initialInfo.name})`,
         );
         if (includedOrgs.length && !includedOrgs.includes(element.org)) {
           skippedCount++;
