@@ -1482,7 +1482,7 @@ __metadata:
     keytar-forked-forked:
       optional: true
   bin:
-    outstanding: lib/index.mts
+    outstanding: lib/cli.js
   languageName: unknown
   linkType: soft
 

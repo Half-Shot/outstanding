@@ -9,6 +9,7 @@ import { createInterface } from "node:readline/promises";
 import { getGitHubToken } from "./config.mts";
 import { renderTable } from "./table.mts";
 
+
 export async function main() {
   const githubToken = await getGitHubToken();
   const [_, __, includedOrgsStr, ignoreReposStr] = process.argv;
@@ -67,20 +68,30 @@ Example:
         }
         prSet.add(element);
       }
+      // TODO: Fix this.
       spinner.succeed("Found all PRs!");
-      console.log(renderTable(sortedByRepo, skippedCount));
+      do {
+        console.log(renderTable(sortedByRepo, skippedCount));
+        const rl = createInterface({
+          output: process.stdout,
+          input: process.stdin,
+        });
+        const { redraw, rerun: shouldRerun } = await Promise.race([new Promise<{redraw?: boolean, rerun?: boolean}>(resolve => process.once("SIGWINCH", () => resolve({ redraw: true }))), (async (): Promise<{redraw?: boolean, rerun?: boolean}> => {
+          const response = (await rl.question("Run again? (Y/N)")) || "y";
+          return { rerun: response[0].toLocaleLowerCase() === "y" };
+        })()]);
+        rerun = !!shouldRerun;
+        rl.close();
+        if (!redraw) {
+          break;
+        }
+      } while(true)
     } catch (ex) {
       spinner.fail("Failed to run");
       throw ex;
     }
 
-    const rl = createInterface({
-      output: process.stdout,
-      input: process.stdin,
-    });
-    const response = (await rl.question("Run again? (Y/N)")) || "y";
-    rerun = response[0].toLocaleLowerCase() === "y";
-    rl.close();
+
   } while (rerun);
 }
 

@@ -1,4 +1,5 @@
 import { graphql } from "@octokit/graphql";
+import { getPRState } from "./requests/getPRState.mts";
 
 interface GetInitialInfoResponse {
   viewer: {
@@ -46,35 +47,8 @@ interface GetOutstandingPRsForOrgsResponse {
         createdAt: string;
         title: string;
         url: string;
+        number: number;
         isDraft: boolean;
-        commits: {
-          nodes: [
-            {
-              checkSuites: {
-                nodes: {
-                  status:
-                    | "REQUESTED"
-                    | "QUEUED"
-                    | "IN_PROGRESS"
-                    | "COMPLETED"
-                    | "WAITING"
-                    | "PENDING";
-                  conclusion: CheckSuiteConclusion | string; // Other reasons
-                }[];
-              };
-            },
-          ];
-        };
-        mergeStateStatus:
-          | "DIRTY"
-          | "UNKNOWN"
-          | "BLOCKED"
-          | "BEHIND"
-          | "DRAFT"
-          | "UNSTABLE"
-          | "HAS_HOOKS"
-          | "CLEAN";
-        reviewDecision: "APPROVED" | "COMMENTED" | "CHANGES_REQUESTED";
         assignees: {
           nodes: {
             login: string;
@@ -115,6 +89,10 @@ export async function* getOutstandingPRsForOrgs(
   gql: typeof graphql,
 ): AsyncGenerator<PullRequest> {
   let cursor = "";
+  const toProcess: {
+    element: GetOutstandingPRsForOrgsResponse["viewer"]["pullRequests"]["nodes"][0];
+    prState: ReturnType<typeof getPRState>;
+  }[] = [];
   do {
     const response = await gql<GetOutstandingPRsForOrgsResponse>(
       `
@@ -130,20 +108,8 @@ export async function* getOutstandingPRsForOrgs(
                             createdAt,
                             title,
                             url,
+                            number,
                             isDraft,
-                            mergeStateStatus,
-                            commits(last: 1) {
-                                nodes {
-                                    commit {
-                                        checkSuites(first: 10) {
-                                            nodes {
-                                                conclusion
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            reviewDecision,
                             assignees(first: 10) {
                                 nodes{
                                     login,
@@ -178,43 +144,71 @@ export async function* getOutstandingPRsForOrgs(
         continue;
       }
 
-      const currentChecksState = (
-        element.commits.nodes[0]?.checkSuites?.nodes ?? []
-      ).reduce<CheckSuiteConclusion>((prev, curr) => {
-        if (curr.status !== "COMPLETED") {
-          return prev;
-        }
-        if (prev === "FAILURE") {
-          return "FAILURE";
-        }
-        if (curr.conclusion === "SUCCESS" || curr.conclusion === "FAILURE") {
-          return curr.conclusion;
-        }
-        return "NEUTRAL";
-      }, "NEUTRAL");
-
-      let blockedBy: PullRequest["blockedBy"];
-
       if (element.isDraft) {
-        blockedBy = "DRAFT";
-      } else if (currentChecksState === "FAILURE") {
-        blockedBy = "FAILING_TESTS";
-      } else {
-        blockedBy = element.mergeStateStatus;
+        yield {
+          title: element.title,
+          state: "DRAFT",
+          url: element.url,
+          repository: element.repository.name,
+          createdAt: new Date(element.createdAt),
+          org: element.repository.owner.login,
+          blockedBy: "DRAFT",
+        };
+        continue;
       }
 
-      yield {
-        title: element.title,
-        state: element.isDraft ? "DRAFT" : element.reviewDecision,
-        url: element.url,
-        repository: element.repository.name,
-        createdAt: new Date(element.createdAt),
-        org: element.repository.owner.login,
-        blockedBy,
-      };
+      toProcess.push({
+        element,
+        prState: getPRState(
+          gql,
+          element.repository.owner.login,
+          element.repository.name,
+          element.number,
+        ),
+      });
     }
     cursor = pullRequests.pageInfo.hasNextPage
       ? pullRequests.pageInfo.endCursor
       : "";
   } while (cursor);
+
+  // Now await and process all the remaining ones.
+  for (const { element, prState: prStatePromise } of toProcess) {
+    const prState = await prStatePromise;
+    // Get extra state if needed.
+    const currentChecksState = (
+      prState.commits.nodes[0]?.checkSuites?.nodes ?? []
+    ).reduce<CheckSuiteConclusion>((prev, curr) => {
+      if (curr.status !== "COMPLETED") {
+        return prev;
+      }
+      if (prev === "FAILURE") {
+        return "FAILURE";
+      }
+      if (curr.conclusion === "SUCCESS" || curr.conclusion === "FAILURE") {
+        return curr.conclusion;
+      }
+      return "NEUTRAL";
+    }, "NEUTRAL");
+
+    let blockedBy: PullRequest["blockedBy"];
+
+    if (element.isDraft) {
+      blockedBy = "DRAFT";
+    } else if (currentChecksState === "FAILURE") {
+      blockedBy = "FAILING_TESTS";
+    } else {
+      blockedBy = prState.mergeStateStatus;
+    }
+
+    yield {
+      title: element.title,
+      state: element.isDraft ? "DRAFT" : prState.reviewDecision,
+      url: element.url,
+      repository: element.repository.name,
+      createdAt: new Date(element.createdAt),
+      org: element.repository.owner.login,
+      blockedBy,
+    };
+  }
 }
